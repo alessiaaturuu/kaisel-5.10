@@ -68,7 +68,7 @@ jobs:
                       --output ../images/boot-5.10.888-kaisel-kernel.img
 
       - name: Upload boot.img artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tanzanite-boot-5.10.888-kaisel-kernel
           path: images/boot-5.10.888-kaisel-kernel.img
