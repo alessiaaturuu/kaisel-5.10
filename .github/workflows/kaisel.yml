@@ -2,11 +2,6 @@ name: Build & Repack Kernel Tanzanite (5.10.888-kaisel-kernel)
 
 on:
   workflow_dispatch:
-    inputs:
-      governor:
-        description: 'CPU governor (default: schedutil)'
-        required: true
-        default: 'schedutil'
 
 jobs:
   build:
@@ -14,6 +9,8 @@ jobs:
     env:
       ARCH: arm64
       KERNEL_OUT: out
+      CCACHE_DIR: ${{ runner.temp }}/ccache  # lokasi ccache
+      USE_CCACHE: 1
 
     steps:
       - name: Checkout repo
@@ -22,13 +19,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git gcc g++ bc bison flex libncurses5-dev libssl-dev make wget unzip python3
+          sudo apt-get install -y git gcc g++ bc bison flex libncurses5-dev libssl-dev make wget unzip python3 ccache
+
+      - name: Enable ccache
+        run: |
+          export PATH="/usr/lib/ccache:$PATH"
+          ccache -M 5G   # maksimal 5GB cache
 
       - name: Clone official GKI kernel
         run: |
           git clone https://android.googlesource.com/kernel/common.git kernel
           cd kernel
-          git checkout android-16-12-5.10
+          git fetch --tags
+          git checkout tags/android-12.0.0_r45   # Official GKI Android 12 / 5.10
 
       - name: Clone device tree & vendor
         run: |
@@ -39,8 +42,8 @@ jobs:
         run: |
           cd kernel
           make O=$KERNEL_OUT ARCH=$ARCH tanzanite_defconfig
-          # Set default CPU governor (safe, no uppercase needed)
-          sed -i 's/CONFIG_CPU_FREQ_DEFAULT_GOV=.*/CONFIG_CPU_FREQ_DEFAULT_GOV_'${{ github.event.inputs.governor }}'=y/' $KERNEL_OUT/.config
+          # Set default CPU governor
+          sed -i 's/CONFIG_CPU_FREQ_DEFAULT_GOV=.*/CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y/' $KERNEL_OUT/.config
           # Set custom kernel name
           echo 'CONFIG_LOCALVERSION="-5.10.888-kaisel-kernel"' >> $KERNEL_OUT/.config
           make O=$KERNEL_OUT ARCH=$ARCH olddefconfig
@@ -48,7 +51,7 @@ jobs:
       - name: Build kernel
         run: |
           cd kernel
-          make -j$(nproc) O=$KERNEL_OUT ARCH=$ARCH
+          make -j$(nproc) O=$KERNEL_OUT ARCH=$ARCH CC="ccache gcc"
 
       - name: Download ramdisk & vendor_boot.img
         run: |
