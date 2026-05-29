@@ -23,8 +23,11 @@ jobs:
 
       - name: Enable ccache
         run: |
-          export PATH="/usr/lib/ccache:$PATH"
-          ccache -M 5G   # maksimal 5GB cache
+          export CCACHE_DIR=$(mktemp -d)  # temporary directory untuk ccache
+          export USE_CCACHE=1
+          ccache -M 5G
+          echo "CCACHE_DIR=$CCACHE_DIR" >> $GITHUB_ENV
+          echo "USE_CCACHE=1" >> $GITHUB_ENV
 
       - name: Clone official GKI kernel
         run: |
